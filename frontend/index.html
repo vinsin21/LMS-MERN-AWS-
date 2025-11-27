@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coder's Gyan Clone</title>
+
+  <!-- Google Fonts: Inter (Geist alternative) and Caveat -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            background: '#171717',
+            brand: {
+              yellow: '#FFD439',
+              green: '#22c55e', // Approximate for the Guaranteed badge
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'], // Using Inter as Geist fallback
+            cursive: ['Caveat', 'cursive'],
+          },
+          backgroundImage: {
+            'glow': 'radial-gradient(circle at center, rgba(255, 212, 57, 0.15) 0%, rgba(23, 23, 23, 0) 70%)',
+          },
+          animation: {
+            "shimmer-slide": "shimmer-slide var(--speed) ease-in-out infinite alternate",
+            "spin-around": "spin-around calc(var(--speed) * 2) infinite linear",
+            "fade-in-up": "fadeInUp 0.8s ease-out forwards",
+          },
+          keyframes: {
+            "spin-around": {
+              "0%": {
+                transform: "translateZ(0) rotate(0)",
+              },
+              "15%, 35%": {
+                transform: "translateZ(0) rotate(90deg)",
+              },
+              "65%, 85%": {
+                transform: "translateZ(0) rotate(270deg)",
+              },
+              "100%": {
+                transform: "translateZ(0) rotate(360deg)",
+              },
+            },
+            "shimmer-slide": {
+              to: {
+                transform: "translate(calc(100cqw - 100%), 0)",
+              },
+            },
+            fadeInUp: {
+              "0%": { opacity: "0", transform: "translateY(20px)" },
+              "100%": { opacity: "1", transform: "translateY(0)" },
+            }
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #171717;
+      color: white;
+      overflow-x: hidden;
+      /* Moved here from App.tsx to support sticky positioning */
+    }
+
+    /* Custom scrollbar to match dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #171717;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 4px;
+    }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/": "https://esm.sh/react-dom@18.3.1/",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.23.0?external=react,react-dom",
+    "lucide-react": "https://esm.sh/lucide-react@0.378.0",
+    "clsx": "https://esm.sh/clsx@2.1.1",
+    "tailwind-merge": "https://esm.sh/tailwind-merge@2.3.0",
+    "framer-motion": "https://esm.sh/framer-motion@11.2.0",
+    "@radix-ui/react-slot": "https://esm.sh/@radix-ui/react-slot@1.0.2?external=react,react-dom",
+    "class-variance-authority": "https://esm.sh/class-variance-authority@0.7.0",
+    "react/": "https://esm.sh/react@18.3.1/"
+  }
+}
+</script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
