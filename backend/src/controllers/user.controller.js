@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { hashToken, verifyTokenHash } from "../utils/hashToken.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { emailVerificationTemplate, passwordResetTemplate, passwordChangedTemplate } from "../utils/emailTemplates.js";
+import { availableUserRoles } from "../constants.js";
 import jwt from "jsonwebtoken";
 import argon2 from 'argon2';
 import crypto from 'crypto';
@@ -555,6 +556,84 @@ const resetPassword = asyncHandler(async (req, res) => {
     );
 });
 
+// ===== ADMIN CONTROLLERS =====
+
+/**
+ * Get all users (Admin only)
+ * SECURED VERSION - Defense in depth with multiple security layers
+ */
+const getAllUsers = asyncHandler(async (req, res) => {
+    // SECURITY LAYER 1: Authorization check in controller (defense in depth)
+    if (!req.user || req.user.role !== 'admin') {
+        throw new ApiError(403, "Access denied. Admin privileges required.");
+    }
+
+    // SECURITY LAYER 2: Validate and sanitize query params
+    const { page, limit, role, isActive } = req.query;
+
+    // Validate page number (strict integer check)
+    const pageNum = page ? Number(page) : 1;
+    if (!Number.isInteger(pageNum) || pageNum < 1) {
+        throw new ApiError(400, "Page must be a valid positive integer");
+    }
+
+    // Validate and enforce max limit (prevent DoS)
+    const limitNum = limit ? Number(limit) : 10;
+    const MAX_LIMIT = 100;
+    if (!Number.isInteger(limitNum) || limitNum < 1 || limitNum > MAX_LIMIT) {
+        throw new ApiError(400, `Limit must be a valid integer between 1 and ${MAX_LIMIT}`);
+    }
+
+    // Build filter with sanitized values
+    const filter = {};
+
+    // SECURITY LAYER 3: Whitelist role values (prevent NoSQL injection)
+    if (role) {
+        if (!availableUserRoles.includes(role)) {
+            throw new ApiError(400, `Invalid role. Must be: ${availableUserRoles.join(', ')}`);
+        }
+        filter.role = role; // Safe - whitelisted
+    }
+
+    // SECURITY LAYER 4: Sanitize boolean (prevent injection)
+    if (isActive !== undefined) {
+        if (isActive !== 'true' && isActive !== 'false') {
+            throw new ApiError(400, "isActive must be 'true' or 'false'");
+        }
+        filter.isActive = isActive === 'true';
+    }
+
+    // SECURITY LAYER 5: Hide super admin from regular admins
+    // Only super admin can see super admin account
+    if (!req.user.isSuperAdmin) {
+        filter.isSuperAdmin = { $ne: true };
+    }
+
+    // Get users with pagination
+    const users = await User.find(filter)
+        .select("-password -refreshTokens -emailVerificationToken -forgotPasswordToken")
+        .limit(limitNum)
+        .skip((pageNum - 1) * limitNum)
+        .sort({ createdAt: -1 });
+
+    // Get total count
+    const count = await User.countDocuments(filter);
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                users,
+                totalPages: Math.ceil(count / limitNum),
+                currentPage: pageNum,
+                totalUsers: count,
+                limit: limitNum
+            },
+            "Users retrieved successfully"
+        )
+    );
+});
+
 export {
     registerUser,
     loginUser,
@@ -563,5 +642,6 @@ export {
     logoutUser,
     refreshAccessToken,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    getAllUsers
 };
