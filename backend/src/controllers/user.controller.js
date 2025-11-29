@@ -634,6 +634,37 @@ const getAllUsers = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * Get user by ID (Admin only)
+ * Returns detailed user information
+ */
+const getUserById = asyncHandler(async (req, res) => {
+    // SECURITY: Authorization check
+    if (!req.user || req.user.role !== 'admin') {
+        throw new ApiError(403, "Access denied. Admin privileges required.");
+    }
+
+    const { userId } = req.params;
+    // Note: userId validation is handled by Zod middleware
+
+    // Get user
+    const user = await User.findById(userId)
+        .select("-password -refreshTokens -emailVerificationToken -forgotPasswordToken");
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // SECURITY: Hide super admin from regular admins
+    if (!req.user.isSuperAdmin && user.isSuperAdmin) {
+        throw new ApiError(403, "Access denied. Cannot view super admin details.");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, user, "User retrieved successfully")
+    );
+});
+
 export {
     registerUser,
     loginUser,
@@ -643,5 +674,6 @@ export {
     refreshAccessToken,
     forgotPassword,
     resetPassword,
-    getAllUsers
+    getAllUsers,
+    getUserById
 };

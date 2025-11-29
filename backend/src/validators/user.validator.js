@@ -35,11 +35,17 @@ const resetPasswordSchema = z.object({
     newPassword: z.string().min(8, { message: "Password must be at least 8 characters" })
 });
 
+// Admin param validation
+const getUserByIdSchema = z.object({
+    userId: z.string().regex(/^[0-9a-fA-F]{24}$/, { message: "Invalid user ID format" })
+});
+
 export {
     userRegisterSchema,
     userLoginSchema,
     verifyEmailSchema,
     resendOtpSchema,
     forgotPasswordSchema,
-    resetPasswordSchema
+    resetPasswordSchema,
+    getUserByIdSchema
 };

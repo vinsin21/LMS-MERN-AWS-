@@ -8,7 +8,8 @@ import {
     refreshAccessToken,
     forgotPassword,
     resetPassword,
-    getAllUsers
+    getAllUsers,
+    getUserById
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -21,7 +22,8 @@ import {
     verifyEmailSchema,
     resendOtpSchema,
     forgotPasswordSchema,
-    resetPasswordSchema
+    resetPasswordSchema,
+    getUserByIdSchema
 } from "../validators/user.validator.js";
 
 const router = Router();
@@ -53,6 +55,14 @@ router.route("/admin/users").get(
     checkActive,
     verifyRole(['admin']),
     getAllUsers
+);
+
+router.route("/admin/users/:userId").get(
+    verifyJWT,
+    checkActive,
+    verifyRole(['admin']),
+    validate(getUserByIdSchema, 'params'),
+    getUserById
 );
 
 export default router;

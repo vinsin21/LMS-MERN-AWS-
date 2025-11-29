@@ -1,9 +1,15 @@
 import { ApiError } from "../utils/ApiError.js";
 import { z } from "zod";
 
-const validate = (schema) => (req, res, next) => {
+/**
+ * Validate middleware
+ * @param {z.ZodSchema} schema - Zod schema to validate against
+ * @param {string} source - Source of data to validate ('body', 'params', 'query')
+ */
+const validate = (schema, source = 'body') => (req, res, next) => {
     try {
-        schema.parse(req.body);
+        const dataToValidate = req[source];
+        schema.parse(dataToValidate);
         next();
     } catch (err) {
         if (err instanceof z.ZodError) {
