@@ -1,4 +1,4 @@
-export const DB_NAME = "lms";
+export const DB_NAME = "lms-backend";
 
 // User Role Enumeration
 export const userRoleEnum = {
