@@ -40,6 +40,12 @@ const getUserByIdSchema = z.object({
     userId: z.string().regex(/^[0-9a-fA-F]{24}$/, { message: "Invalid user ID format" })
 });
 
+// Admin action validation
+const deactivateUserSchema = z.object({
+    userId: z.string().regex(/^[0-9a-fA-F]{24}$/, { message: "Invalid user ID format" }),
+    isActive: z.boolean({ required_error: "isActive is required" })
+});
+
 export {
     userRegisterSchema,
     userLoginSchema,
@@ -47,5 +53,6 @@ export {
     resendOtpSchema,
     forgotPasswordSchema,
     resetPasswordSchema,
-    getUserByIdSchema
+    getUserByIdSchema,
+    deactivateUserSchema
 };

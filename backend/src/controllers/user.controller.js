@@ -665,6 +665,66 @@ const getUserById = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * Deactivate/Activate user (Admin only)
+ * Toggles user's isActive status
+ */
+const deactivateUser = asyncHandler(async (req, res) => {
+    // SECURITY: Authorization check
+    if (!req.user || req.user.role !== 'admin') {
+        throw new ApiError(403, "Access denied. Admin privileges required.");
+    }
+
+    const { userId } = req.params;
+    const { isActive } = req.body;
+    // Note: Validation handled by Zod middleware
+
+    // SECURITY: Prevent self-deactivation
+    if (userId === req.user._id.toString()) {
+        throw new ApiError(400, "Cannot modify your own account status");
+    }
+
+    // Get target user
+    const targetUser = await User.findById(userId);
+
+    if (!targetUser) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // SECURITY: Protect super admin
+    if (!req.user.isSuperAdmin && targetUser.isSuperAdmin) {
+        throw new ApiError(403, "Access denied. Cannot modify super admin account.");
+    }
+
+    // Check if already in desired state
+    if (targetUser.isActive === isActive) {
+        // Sanitize user before returning
+        const sanitizedUser = await User.findById(userId).select("-password -refreshTokens -emailVerificationToken -forgotPasswordToken");
+
+        return res.status(200).json(
+            new ApiResponse(200, sanitizedUser, `User is already ${isActive ? 'active' : 'deactivated'}`)
+        );
+    }
+
+    // Atomic update
+    const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+            $set: {
+                isActive,
+                // If deactivating, invalidate all sessions
+                ...(isActive === false && { refreshTokens: [] })
+            }
+        },
+        { new: true }
+    ).select("-password -refreshTokens -emailVerificationToken -forgotPasswordToken");
+
+    const action = isActive ? "activated" : "deactivated";
+    return res.status(200).json(
+        new ApiResponse(200, updatedUser, `User ${action} successfully`)
+    );
+});
+
 export {
     registerUser,
     loginUser,
@@ -675,5 +735,6 @@ export {
     forgotPassword,
     resetPassword,
     getAllUsers,
-    getUserById
+    getUserById,
+    deactivateUser
 };

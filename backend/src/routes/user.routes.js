@@ -9,7 +9,8 @@ import {
     forgotPassword,
     resetPassword,
     getAllUsers,
-    getUserById
+    getUserById,
+    deactivateUser
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -23,7 +24,8 @@ import {
     resendOtpSchema,
     forgotPasswordSchema,
     resetPasswordSchema,
-    getUserByIdSchema
+    getUserByIdSchema,
+    deactivateUserSchema
 } from "../validators/user.validator.js";
 
 const router = Router();
@@ -63,6 +65,15 @@ router.route("/admin/users/:userId").get(
     verifyRole(['admin']),
     validate(getUserByIdSchema, 'params'),
     getUserById
+);
+
+router.route("/admin/users/:userId/status").patch(
+    verifyJWT,
+    checkActive,
+    verifyRole(['admin']),
+    validate(getUserByIdSchema, 'params'),
+    validate(deactivateUserSchema, 'body'),
+    deactivateUser
 );
 
 export default router;
