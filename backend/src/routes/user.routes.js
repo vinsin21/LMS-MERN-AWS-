@@ -10,7 +10,8 @@ import {
     resetPassword,
     getAllUsers,
     getUserById,
-    deactivateUser
+    deactivateUser,
+    getCurrentUser
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -50,6 +51,7 @@ router.route("/reset-password").post(passwordResetLimiter, validate(resetPasswor
 
 // ===== AUTHENTICATED ROUTES =====
 router.route("/logout").post(verifyJWT, logoutUser);
+router.route("/current-user").get(verifyJWT, getCurrentUser);
 
 // ===== ADMIN ROUTES =====
 router.route("/admin/users").get(
