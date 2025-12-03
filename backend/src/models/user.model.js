@@ -49,7 +49,8 @@ const userSchema = new Schema(
         },
         avatar: {
             type: String, // local path or cloud url
-            required: true,
+            required: false,
+            default: null
         },
         password: {
             type: String,

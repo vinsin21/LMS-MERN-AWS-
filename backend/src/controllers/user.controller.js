@@ -35,28 +35,21 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User with email or username already exists");
     }
 
-    // 3. Check for avatar file
-    const avatarLocalPath = req.file?.path;
-
-    if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar file is required");
-    }
-
-    // 4. Create user object - create entry in db
+    // 3. Create user object - create entry in db
     const user = new User({
         fullName,
-        avatar: avatarLocalPath, // Saving local path for now
+        avatar: null, // Default to null, user can upload later
         email,
         password,
         username: username.toLowerCase()
     });
 
-    // 5. Generate Email Verification Token
+    // 4. Generate Email Verification Token
     const verificationToken = user.generateEmailVerificationToken();
 
     await user.save();
 
-    // 6. Send Verification Email
+    // 5. Send Verification Email
     let emailMessage = "User registered successfully. Please verify your email.";
     try {
         await sendEmail(
@@ -71,7 +64,7 @@ const registerUser = asyncHandler(async (req, res) => {
         emailMessage = "User registered successfully, but failed to send verification email. Please use the resend-otp endpoint.";
     }
 
-    // 7. Remove password and refresh token field from response
+    // 6. Remove password and refresh token field from response
     const createdUser = await User.findById(user._id).select(
         "-password -refreshTokens -emailVerificationToken -forgotPasswordToken"
     );
@@ -80,7 +73,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Something went wrong while registering the user");
     }
 
-    // 8. Send response
+    // 7. Send response
     return res.status(201).json(
         new ApiResponse(201, createdUser, emailMessage)
     );
@@ -727,6 +720,81 @@ const deactivateUser = asyncHandler(async (req, res) => {
 
 
 
+/**
+ * Update User Avatar
+ * Allows authenticated users to upload/update their avatar
+ * SECURITY: Validates file type, cleans up old files, handles errors properly
+ */
+const updateUserAvatar = asyncHandler(async (req, res) => {
+    // 1. Check if file was uploaded
+    const avatarLocalPath = req.file?.path;
+
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is required");
+    }
+
+    // 2. Verify uploaded file exists (defensive check)
+    const fs = await import('fs');
+    if (!fs.existsSync(avatarLocalPath)) {
+        throw new ApiError(500, "File upload failed. Please try again.");
+    }
+
+    // 3. Validate file path (prevent directory traversal)
+    const path = await import('path');
+    const normalizedPath = path.normalize(avatarLocalPath);
+    if (!normalizedPath.startsWith('public/temp') && !normalizedPath.startsWith('.\\public\\temp')) {
+        // Cleanup the malicious file
+        fs.unlinkSync(avatarLocalPath);
+        throw new ApiError(400, "Invalid file path");
+    }
+
+    // 4. Get old avatar path before update (for cleanup)
+    const currentUser = await User.findById(req.user._id).select('avatar');
+    const oldAvatarPath = currentUser?.avatar;
+
+    try {
+        // 5. Update user's avatar in database
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $set: {
+                    avatar: avatarLocalPath
+                }
+            },
+            { new: true }
+        ).select("-password -refreshTokens -emailVerificationToken -forgotPasswordToken -emailVerificationExpiry -forgotPasswordExpiry -resetAttempts -accountLockedUntil");
+
+        if (!updatedUser) {
+            throw new ApiError(404, "User not found");
+        }
+
+        // 6. Delete old avatar file (if exists and is a local file)
+        if (oldAvatarPath && oldAvatarPath.startsWith('public/temp') && fs.existsSync(oldAvatarPath)) {
+            try {
+                fs.unlinkSync(oldAvatarPath);
+            } catch (error) {
+                // Log error but don't fail the request
+                console.error("Failed to delete old avatar:", error);
+            }
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, updatedUser, "Avatar updated successfully")
+        );
+
+    } catch (error) {
+        // 7. Rollback: Delete newly uploaded file if DB update failed
+        if (fs.existsSync(avatarLocalPath)) {
+            try {
+                fs.unlinkSync(avatarLocalPath);
+            } catch (unlinkError) {
+                console.error("Failed to cleanup uploaded file after error:", unlinkError);
+            }
+        }
+        throw error; // Re-throw original error
+    }
+});
+
 const getCurrentUser = asyncHandler(async (req, res) => {
     return res.status(200).json(
         new ApiResponse(
@@ -749,5 +817,6 @@ export {
     getAllUsers,
     getUserById,
     deactivateUser,
+    updateUserAvatar,
     getCurrentUser
 };

@@ -11,6 +11,7 @@ import {
     getAllUsers,
     getUserById,
     deactivateUser,
+    updateUserAvatar,
     getCurrentUser
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -34,7 +35,6 @@ const router = Router();
 // ===== PUBLIC ROUTES =====
 router.route("/register").post(
     authLimiter,
-    upload.single("avatar"),
     validate(userRegisterSchema),
     registerUser
 );
@@ -52,6 +52,12 @@ router.route("/reset-password").post(passwordResetLimiter, validate(resetPasswor
 // ===== AUTHENTICATED ROUTES =====
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/current-user").get(verifyJWT, getCurrentUser);
+router.route("/avatar").patch(
+    verifyJWT,
+    checkActive,
+    upload.single("avatar"),
+    updateUserAvatar
+);
 
 // ===== ADMIN ROUTES =====
 router.route("/admin/users").get(

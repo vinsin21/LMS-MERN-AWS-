@@ -5,7 +5,22 @@ import { ApiError } from "../utils/ApiError.js";
 const errorHandler = (err, req, res, next) => {
     let error = err;
 
-    if (!(error instanceof ApiError)) {
+    // Handle Multer-specific errors
+    if (err.name === 'MulterError') {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            error = new ApiError(400, "File too large. Maximum size is 5MB");
+        } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            error = new ApiError(400, "Unexpected file field");
+        } else {
+            error = new ApiError(400, err.message);
+        }
+    }
+    // Handle file filter errors (invalid file type)
+    else if (err.message && err.message.includes('Invalid file type')) {
+        error = new ApiError(400, err.message);
+    }
+    // Handle other errors
+    else if (!(error instanceof ApiError)) {
         const statusCode = error.statusCode || error instanceof mongoose.Error ? 400 : 500;
         const message = error.message || "Something went wrong";
         error = new ApiError(statusCode, message, error?.errors || [], err.stack);
