@@ -12,7 +12,9 @@ import {
     getUserById,
     deactivateUser,
     updateUserAvatar,
-    getCurrentUser
+    getCurrentUser,
+    getPresignedUrlForAvatar,
+    updateS3KeyInUserAvatar,
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -31,6 +33,7 @@ import {
 } from "../validators/user.validator.js";
 
 const router = Router();
+
 
 // ===== PUBLIC ROUTES =====
 router.route("/register").post(
@@ -58,6 +61,8 @@ router.route("/avatar").patch(
     upload.single("avatar"),
     updateUserAvatar
 );
+router.route("/presign-avatar").post(verifyJWT, checkActive, getPresignedUrlForAvatar)
+router.route("/update-avatar-key").post(verifyJWT, checkActive, updateS3KeyInUserAvatar)
 
 // ===== ADMIN ROUTES =====
 router.route("/admin/users").get(

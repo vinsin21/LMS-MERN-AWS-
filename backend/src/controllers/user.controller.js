@@ -9,6 +9,9 @@ import { availableUserRoles } from "../constants.js";
 import jwt from "jsonwebtoken";
 import argon2 from 'argon2';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { uploadToS3Avatar } from "../utils/s3.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
@@ -718,8 +721,51 @@ const deactivateUser = asyncHandler(async (req, res) => {
     );
 });
 
+// to GetPresignedUrl For frontend
+
+export const getPresignedUrlForAvatar = asyncHandler(async (req, res) => {
+    const { mimeType } = req.body;
+    if (!mimeType) {
+        throw new ApiError(400, "Mime type is required");
+    }
+
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedMimeTypes.includes(mimeType)) {
+        throw new ApiError(400, "Unsupported mime type");
+    }
+    const { uploadUrl, key } = await uploadToS3Avatar(mimeType);
+    return res.status(200).json(
+        new ApiResponse(200, { uploadUrl, key }, "Presigned URL generated successfully")
+    )
+
+})
+
+export const updateS3KeyInUserAvatar = asyncHandler(async (req, res) => {
+    const { key } = req.body
 
 
+    const userId = req.user._id
+    try {
+        const user = await User.findByIdAndUpdate(userId, { avatar: key }, { new: true });
+        return res.status(200).json(
+            new ApiResponse(200, user, "Avatar updated successfully")
+        )
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while updating avatar");
+    }
+})
+
+/*
+        "fieldname": "wallpaper",
+        "originalname": "pic1.jpg",
+        "encoding": "7bit",
+        "mimetype": "image/jpeg",
+        "destination": "./public/temp",
+        "filename": "wallpaper-1765351824682-120933956.jpeg",
+        "path": "public\\temp\\wallpaper-1765351824682-120933956.jpeg",
+        "size": 65037
+
+*/
 /**
  * Update User Avatar
  * Allows authenticated users to upload/update their avatar
@@ -727,6 +773,7 @@ const deactivateUser = asyncHandler(async (req, res) => {
  */
 const updateUserAvatar = asyncHandler(async (req, res) => {
     // 1. Check if file was uploaded
+
     const avatarLocalPath = req.file?.path;
 
     if (!avatarLocalPath) {
@@ -734,15 +781,13 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
 
     // 2. Verify uploaded file exists (defensive check)
-    const fs = await import('fs');
     if (!fs.existsSync(avatarLocalPath)) {
         throw new ApiError(500, "File upload failed. Please try again.");
     }
 
     // 3. Validate file path (prevent directory traversal)
-    const path = await import('path');
-    const normalizedPath = path.normalize(avatarLocalPath);
-    if (!normalizedPath.startsWith('public/temp') && !normalizedPath.startsWith('.\\public\\temp')) {
+    const normalizedPath = path.normalize(avatarLocalPath).replace(/\\/g, '/');
+    if (!normalizedPath.startsWith('public/temp')) {
         // Cleanup the malicious file
         fs.unlinkSync(avatarLocalPath);
         throw new ApiError(400, "Invalid file path");
@@ -820,3 +865,4 @@ export {
     updateUserAvatar,
     getCurrentUser
 };
+

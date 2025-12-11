@@ -9,3 +9,12 @@ export const userRoleEnum = {
 
 // Available user roles array for validation
 export const availableUserRoles = Object.values(userRoleEnum);
+
+
+export const S3ImagePrefix = {
+    "AVATAR": "avatar",
+    "WALLPAPER": "wallpaper",
+    "COURSE_IMAGE": "course-image"
+}
+
+export const availableS3ImagePrefix = Object.values(S3ImagePrefix);

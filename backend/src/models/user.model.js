@@ -48,7 +48,7 @@ const userSchema = new Schema(
             index: true
         },
         avatar: {
-            type: String, // local path or cloud url
+            type: String, //s3key
             required: false,
             default: null
         },
@@ -120,6 +120,11 @@ userSchema.pre(/^find/, function (next) {
         this.where({ deletedAt: null });
     }
     next();
+});
+
+userSchema.virtual("imageUrl").get(function () {
+    if (!process.env.CLOUDFRONT_URL || !this.avatar) return null;
+    return `${process.env.CLOUDFRONT_URL}/${this.avatar}`;
 });
 
 userSchema.pre("save", async function (next) {
