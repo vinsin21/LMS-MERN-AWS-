@@ -208,9 +208,17 @@ export const Navbar: React.FC = () => {
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-white/5 transition-colors"
                   >
-                    <div className="w-8 h-8 bg-brand-yellow/20 rounded-full flex items-center justify-center text-brand-yellow font-semibold text-sm">
-                      {user.fullName?.charAt(0).toUpperCase() || 'U'}
-                    </div>
+                    {user.avatar ? (
+                      <img
+                        src={`${import.meta.env.VITE_CLOUDFRONT_URL}/${user.avatar}`}
+                        alt={user.fullName}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-brand-yellow/20 rounded-full flex items-center justify-center text-brand-yellow font-semibold text-sm">
+                        {user.fullName?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                    )}
                     <ChevronDown size={14} className={`text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -339,9 +347,17 @@ export const Navbar: React.FC = () => {
                     <>
                       {/* User info */}
                       <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2">
-                        <div className="w-10 h-10 bg-brand-yellow/20 rounded-full flex items-center justify-center text-brand-yellow font-semibold">
-                          {user.fullName?.charAt(0).toUpperCase() || 'U'}
-                        </div>
+                        {user.avatar ? (
+                          <img
+                            src={`${import.meta.env.VITE_CLOUDFRONT_URL}/${user.avatar}`}
+                            alt={user.fullName}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-brand-yellow/20 rounded-full flex items-center justify-center text-brand-yellow font-semibold">
+                            {user.fullName?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">{user.fullName}</p>
                           <p className="text-xs text-gray-400 truncate">{user.email}</p>
