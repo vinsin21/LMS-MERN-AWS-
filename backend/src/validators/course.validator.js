@@ -5,9 +5,9 @@ const objectIdSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, "Invalid ObjectId f
 
 export const createCourseSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters long").max(100, "Title must be at most 100 characters long"),
-    description: z.string().min(10, "Description must be at least 10 characters long").max(1000, "Description must be at most 1000 characters long"),
-    price: z.number().min(0, "Price must be a non-negative number"),
-    originalPrice: z.number().min(0, "Original price must be a non-negative number"),
+    description: z.string().min(10, "Description must be at least 10 characters long").max(1000, "Description must be at most 1000 characters long").optional(),
+    price: z.number().min(0, "Price must be a non-negative number").optional(),
+    originalPrice: z.number().min(0, "Original price must be a non-negative number").optional(),
     tag: z.string().optional(),
     duration: z.number().optional(),
     level: z.enum(["beginner", "intermediate", "advanced"]).optional(),

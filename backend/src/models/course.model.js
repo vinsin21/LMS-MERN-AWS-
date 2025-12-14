@@ -20,10 +20,10 @@ const courseSchema = new mongoose.Schema({
     // Course Card Basic detaul
     title: { type: String, required: true, trim: true, maxlength: 100 },
     slug: { type: String, unique: true },
-    description: { type: String, required: true },
+    description: { type: String },
     thumbnail: { type: String, },
-    price: { type: Number, required: true },// discounted price that we show
-    originalPrice: { type: Number, required: true }, // actual higher price
+    price: { type: Number },// discounted price that we show
+    originalPrice: { type: Number }, // actual higher price
     tag: { type: String, },
     duration: { type: Number, },
     level: { type: String, enum: ["beginner", "intermediate", "advanced"], },
