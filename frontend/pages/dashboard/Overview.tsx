@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, CheckCircle, Clock, Award, ArrowRight, PlayCircle, Zap, Layers, Box } from 'lucide-react';
 import { mockUser } from '../../data/mockData';
+import { useAuth } from '../../hooks/useAuth';
 
 const StatCard = ({ icon: Icon, label, value, subtext }: any) => (
     <div className="bg-white dark:bg-[#27272a] p-6 rounded-xl flex flex-col justify-between h-40 hover:bg-zinc-50 dark:hover:bg-[#3f3f46] transition-colors group cursor-pointer border border-zinc-200 dark:border-zinc-800">
@@ -23,14 +24,18 @@ const StatCard = ({ icon: Icon, label, value, subtext }: any) => (
 );
 
 export const Overview: React.FC = () => {
+    const { user } = useAuth();
     const activeCourse = mockUser.enrolledCourses.find(c => c.progress > 0 && c.progress < 100) || mockUser.enrolledCourses[0];
+
+    // Get first name for greeting
+    const firstName = user?.fullName?.split(' ')[0] || 'User';
 
     return (
         <div className="space-y-8">
 
             {/* Welcome Section */}
             <div className="mb-8">
-                <h2 className="text-3xl font-bold text-zinc-900 dark:text-white mb-2">Hey, {mockUser.name}.</h2>
+                <h2 className="text-3xl font-bold text-zinc-900 dark:text-white mb-2">Hey, {firstName}.</h2>
                 <p className="text-zinc-500">Here's what's happening with your learning today.</p>
             </div>
 

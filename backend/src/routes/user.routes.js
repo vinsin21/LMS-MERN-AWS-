@@ -11,7 +11,7 @@ import {
     getAllUsers,
     getUserById,
     deactivateUser,
-    updateUserAvatar,
+    // updateUserAvatar,
     getCurrentUser,
     getPresignedUrlForAvatar,
     updateS3KeyInUserAvatar,
@@ -55,12 +55,12 @@ router.route("/reset-password").post(passwordResetLimiter, validate(resetPasswor
 // ===== AUTHENTICATED ROUTES =====
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/current-user").get(verifyJWT, getCurrentUser);
-router.route("/avatar").patch(
-    verifyJWT,
-    checkActive,
-    upload.single("avatar"),
-    updateUserAvatar
-);
+// router.route("/avatar").patch(
+//     verifyJWT,
+//     checkActive,
+//     upload.single("avatar"),
+//     updateUserAvatar
+// );
 router.route("/presign-avatar").post(verifyJWT, checkActive, getPresignedUrlForAvatar)
 router.route("/update-avatar-key").post(verifyJWT, checkActive, updateS3KeyInUserAvatar)
 

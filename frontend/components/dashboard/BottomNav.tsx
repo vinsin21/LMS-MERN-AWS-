@@ -1,14 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Award, Settings } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { getMobileNavigationForRole } from '../../config/navigationConfig';
 
 export const BottomNav: React.FC = () => {
-    const navItems = [
-        { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
-        { icon: BookOpen, label: 'Courses', path: '/dashboard/courses' },
-        { icon: Award, label: 'Certificates', path: '/dashboard/certificates' },
-        { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
-    ];
+    const { user } = useAuth();
+
+    // Get role-based navigation items for mobile (max 4)
+    const navItems = user ? getMobileNavigationForRole(user.role) : [];
 
     return (
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-[#18181b]/90 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 px-6 py-4 z-50 transition-colors duration-300">

@@ -48,7 +48,19 @@ const errorHandler = (err, req, res, next) => {
         ...(process.env.NODE_ENV === "development" ? { stack: error.stack } : {}),
     };
 
+    // Ensure CORS headers are set even for error responses
+    const origin = req.headers.origin;
+    if (origin && process.env.CORS_ORIGIN) {
+        // Check if origin matches allowed origin
+        const allowedOrigin = process.env.CORS_ORIGIN === origin ? origin : null;
+        if (allowedOrigin) {
+            res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+        }
+    }
+
     return res.status(error.statusCode).json(response);
 };
 
 export { errorHandler };
+

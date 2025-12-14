@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { User, Shield, Bell, CreditCard, Save, Upload, Mail, Lock, Smartphone, Check } from 'lucide-react';
+import { User, Shield, Bell, CreditCard, Save, Upload, Mail, Smartphone, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockUser } from '../../data/mockData';
+import { useAuth } from '../../hooks/useAuth';
+import api from '../../lib/api';
+import axios from 'axios';
+import type { ApiResponse } from '../../types/auth';
 
 export const Settings: React.FC = () => {
     const [activeTab, setActiveTab] = useState('profile');
+    const { user, refreshAuth } = useAuth();
+
+    // Construct avatar URL from S3 key or use null
+    const avatarUrl = user?.avatar
+        ? `${import.meta.env.VITE_CLOUDFRONT_URL || ''}/${user.avatar}`
+        : null;
 
     const tabs = [
         { id: 'profile', label: 'Profile', icon: User },
@@ -57,8 +66,8 @@ export const Settings: React.FC = () => {
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
                     >
-                        {activeTab === 'profile' && <ProfileSettings />}
-                        {activeTab === 'account' && <AccountSettings />}
+                        {activeTab === 'profile' && <ProfileSettings user={user} avatarUrl={avatarUrl} onAvatarUpdate={refreshAuth} />}
+                        {activeTab === 'account' && <AccountSettings user={user} />}
                         {activeTab === 'notifications' && <NotificationSettings />}
                         {activeTab === 'billing' && <BillingSettings />}
                     </motion.div>
@@ -70,72 +79,163 @@ export const Settings: React.FC = () => {
 
 /* --- Sub-Components --- */
 
-const ProfileSettings = () => (
-    <div className="space-y-8 max-w-2xl">
-        {/* Avatar Section */}
-        <div className="flex items-center gap-6">
-            <div className="relative">
-                <img
-                    src={mockUser.avatar}
-                    alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover ring-4 ring-zinc-50 dark:ring-[#27272a]"
-                />
-                <button className="absolute bottom-0 right-0 p-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
-                    <Upload size={14} className="text-zinc-600 dark:text-zinc-300" />
+const ProfileSettings = ({ user, avatarUrl, onAvatarUpdate }: { user: any; avatarUrl: string | null; onAvatarUpdate: () => void }) => {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = React.useState(false);
+    const [uploadError, setUploadError] = React.useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            setUploadError('Please upload a JPG, PNG, or WebP image');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setUploadError('Image must be less than 5MB');
+            return;
+        }
+
+        setUploadError(null);
+        setIsUploading(true);
+
+        // Show preview immediately
+        const objectUrl = URL.createObjectURL(file);
+        setPreviewUrl(objectUrl);
+
+        try {
+            // 1. Get presigned URL from backend
+            const presignResponse = await api.post<ApiResponse<{ uploadUrl: string; key: string }>>('/users/presign-avatar', {
+                mimeType: file.type
+            });
+
+            const { uploadUrl, key } = presignResponse.data.data;
+
+            // 2. Upload file directly to S3
+            await axios.put(uploadUrl, file, {
+                headers: {
+                    'Content-Type': file.type,
+                },
+            });
+
+            // 3. Update backend with S3 key
+            await api.post('/users/update-avatar-key', { key });
+
+            // 4. Refresh auth to get updated user data
+            onAvatarUpdate();
+
+            setPreviewUrl(null); // Clear preview, real avatar will show
+        } catch (error) {
+            console.error('Avatar upload failed:', error);
+            setUploadError('Failed to upload avatar. Please try again.');
+            setPreviewUrl(null);
+        } finally {
+            setIsUploading(false);
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    const displayedAvatar = previewUrl || avatarUrl;
+
+    return (
+        <div className="space-y-8 max-w-2xl">
+            {/* Avatar Section */}
+            <div className="flex items-center gap-6">
+                <div className="relative">
+                    {displayedAvatar ? (
+                        <img
+                            src={displayedAvatar}
+                            alt="Profile"
+                            className={`w-24 h-24 rounded-full object-cover ring-4 ring-zinc-50 dark:ring-[#27272a] ${isUploading ? 'opacity-50' : ''}`}
+                        />
+                    ) : (
+                        <div className={`w-24 h-24 rounded-full bg-brand-yellow/20 flex items-center justify-center ring-4 ring-zinc-50 dark:ring-[#27272a] ${isUploading ? 'opacity-50' : ''}`}>
+                            <span className="text-brand-yellow font-bold text-2xl">
+                                {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Upload button with loading spinner */}
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="absolute bottom-0 right-0 p-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors disabled:cursor-not-allowed"
+                    >
+                        {isUploading ? (
+                            <div className="w-3.5 h-3.5 border-2 border-zinc-300 dark:border-zinc-600 border-t-zinc-900 dark:border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <Upload size={14} className="text-zinc-600 dark:text-zinc-300" />
+                        )}
+                    </button>
+
+                    {/* Hidden file input */}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                    />
+                </div>
+                <div>
+                    <h3 className="font-medium text-zinc-900 dark:text-white">Profile Photo</h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Recommended: 400x400px, JPG, PNG, or WebP.</p>
+                    {uploadError && (
+                        <p className="text-sm text-red-500 mt-1">{uploadError}</p>
+                    )}
+                </div>
+            </div>
+
+            {/* Form Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Full Name</label>
+                    <input
+                        type="text"
+                        defaultValue={user?.fullName || ''}
+                        className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Username</label>
+                    <input
+                        type="text"
+                        defaultValue={user?.username || ''}
+                        className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all"
+                    />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Email</label>
+                    <input
+                        type="email"
+                        defaultValue={user?.email || ''}
+                        disabled
+                        className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 text-zinc-500 cursor-not-allowed"
+                    />
+                </div>
+            </div>
+
+            <div className="pt-4">
+                <button className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-medium hover:opacity-90 transition-opacity">
+                    <Save size={18} />
+                    Save Changes
                 </button>
             </div>
-            <div>
-                <h3 className="font-medium text-zinc-900 dark:text-white">Profile Photo</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Recommended: 400x400px, JPG or PNG.</p>
-            </div>
         </div>
+    );
+};
 
-        {/* Form Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">First Name</label>
-                <input
-                    type="text"
-                    defaultValue="Khush"
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all"
-                />
-            </div>
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Last Name</label>
-                <input
-                    type="text"
-                    defaultValue="Sharma"
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all"
-                />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Headline</label>
-                <input
-                    type="text"
-                    defaultValue="Full Stack Developer & UI Designer"
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all"
-                />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Bio</label>
-                <textarea
-                    rows={4}
-                    defaultValue="Passionate about building beautiful web experiences. Learning React and Node.js."
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all resize-none"
-                />
-            </div>
-        </div>
-
-        <div className="pt-4">
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-medium hover:opacity-90 transition-opacity">
-                <Save size={18} />
-                Save Changes
-            </button>
-        </div>
-    </div>
-);
-
-const AccountSettings = () => (
+const AccountSettings = ({ user }: { user: any }) => (
     <div className="space-y-8 max-w-2xl">
         <div className="space-y-4">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -144,7 +244,7 @@ const AccountSettings = () => (
             <div className="flex gap-4">
                 <input
                     type="email"
-                    defaultValue="khush@example.com"
+                    defaultValue={user?.email || ''}
                     className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 text-zinc-500 cursor-not-allowed"
                     disabled
                 />
@@ -152,27 +252,6 @@ const AccountSettings = () => (
                     Update Email
                 </button>
             </div>
-        </div>
-
-        <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-                <Lock size={20} /> Change Password
-            </h3>
-            <div className="space-y-3">
-                <input
-                    type="password"
-                    placeholder="Current Password"
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all"
-                />
-                <input
-                    type="password"
-                    placeholder="New Password"
-                    className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-[#27272a] border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow outline-none transition-all"
-                />
-            </div>
-            <button className="px-6 py-2.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-medium hover:opacity-90 transition-opacity">
-                Update Password
-            </button>
         </div>
 
         <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800">

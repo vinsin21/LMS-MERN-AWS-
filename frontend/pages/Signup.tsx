@@ -1,25 +1,60 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight, Github, Mail } from 'lucide-react';
+import { Eye, EyeOff, Github, Home, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../hooks/useAuth';
+import { getSafeErrorMessage } from '../types/auth';
+import { AxiosError } from 'axios';
 
 export const Signup: React.FC = () => {
     const navigate = useNavigate();
+    const { register } = useAuth();
+
+    // Form state
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSignup = (e: React.FormEvent) => {
+    const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+
+        try {
+            const { email: registeredEmail } = await register({
+                fullName: `${firstName} ${lastName}`,
+                email,
+                username,
+                password,
+            });
+
+            // Redirect to verify email page with email in state (Issue 1 - don't expose in URL)
+            navigate('/verify-email', { state: { email: registeredEmail } });
+        } catch (err) {
+            const axiosError = err as AxiosError<{ message: string }>;
+            const backendMessage = axiosError.response?.data?.message || 'Registration failed';
+            setError(getSafeErrorMessage(backendMessage));
+        } finally {
             setIsLoading(false);
-            navigate('/dashboard');
-        }, 1500);
+        }
     };
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Home Button */}
+            <Link
+                to="/"
+                className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all shadow-sm group"
+            >
+                <Home size={16} className="sm:w-[18px] sm:h-[18px] transition-transform group-hover:-translate-x-0.5" />
+                <span className="text-sm font-medium hidden sm:inline">Home</span>
+            </Link>
+
             {/* Animated Background Orbs */}
             <motion.div
                 animate={{
@@ -67,13 +102,25 @@ export const Signup: React.FC = () => {
                     </p>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-2"
+                    >
+                        <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                    </motion.div>
+                )}
+
                 {/* Social Login */}
                 <div className="flex gap-3 mb-6">
-                    <button className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 py-2.5 rounded-xl transition-all text-sm font-medium shadow-sm">
+                    <button type="button" className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 py-2.5 rounded-xl transition-all text-sm font-medium shadow-sm">
                         <Github size={18} />
                         <span className="hidden sm:inline">GitHub</span>
                     </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 py-2.5 rounded-xl transition-all text-sm font-medium shadow-sm">
+                    <button type="button" className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 py-2.5 rounded-xl transition-all text-sm font-medium shadow-sm">
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -101,6 +148,9 @@ export const Signup: React.FC = () => {
                             <input
                                 type="text"
                                 required
+                                value={firstName}
+                                onChange={(e) => setFirstName(e.target.value)}
+                                placeholder="John"
                                 className="w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow transition-all shadow-sm"
                             />
                         </div>
@@ -109,9 +159,28 @@ export const Signup: React.FC = () => {
                             <input
                                 type="text"
                                 required
+                                value={lastName}
+                                onChange={(e) => setLastName(e.target.value)}
+                                placeholder="Doe"
                                 className="w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow transition-all shadow-sm"
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Username</label>
+                        <input
+                            type="text"
+                            required
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="johndoe"
+                            pattern="^[a-zA-Z0-9_]+$"
+                            title="Username can only contain letters, numbers and underscores"
+                            minLength={3}
+                            maxLength={20}
+                            className="w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow transition-all shadow-sm"
+                        />
                     </div>
 
                     <div className="space-y-1.5">
@@ -119,6 +188,9 @@ export const Signup: React.FC = () => {
                         <input
                             type="email"
                             required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@example.com"
                             className="w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow transition-all shadow-sm"
                         />
                     </div>
@@ -129,6 +201,10 @@ export const Signup: React.FC = () => {
                             <input
                                 type={showPassword ? "text" : "password"}
                                 required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                minLength={8}
                                 className="w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 pr-10 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow transition-all shadow-sm"
                             />
                             <button
@@ -139,6 +215,7 @@ export const Signup: React.FC = () => {
                                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
                         </div>
+                        <p className="text-xs text-zinc-400 mt-1">Must be at least 8 characters</p>
                     </div>
 
                     <button

@@ -1,25 +1,54 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight, Github, Mail } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff, Github, Home, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../hooks/useAuth';
+import { getSafeErrorMessage } from '../types/auth';
+import { AxiosError } from 'axios';
 
 export const Login: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { login } = useAuth();
+
+    // Form state
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleLogin = (e: React.FormEvent) => {
+    // Get redirect path from location state
+    const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+
+        try {
+            await login({ email, password });
+            navigate(from, { replace: true });
+        } catch (err) {
+            const axiosError = err as AxiosError<{ message: string }>;
+            const backendMessage = axiosError.response?.data?.message || 'Login failed';
+            setError(getSafeErrorMessage(backendMessage));
+        } finally {
             setIsLoading(false);
-            navigate('/dashboard');
-        }, 1500);
+        }
     };
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Home Button */}
+            <Link
+                to="/"
+                className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all shadow-sm group"
+            >
+                <Home size={16} className="sm:w-[18px] sm:h-[18px] transition-transform group-hover:-translate-x-0.5" />
+                <span className="text-sm font-medium hidden sm:inline">Home</span>
+            </Link>
+
             {/* Animated Background Orbs */}
             <motion.div
                 animate={{
@@ -67,6 +96,18 @@ export const Login: React.FC = () => {
                     </p>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-2"
+                    >
+                        <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                    </motion.div>
+                )}
+
                 {/* Social Login */}
                 <div className="flex gap-3 mb-6">
                     <button className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 py-2.5 rounded-xl transition-all text-sm font-medium shadow-sm">
@@ -100,6 +141,9 @@ export const Login: React.FC = () => {
                         <input
                             type="email"
                             required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@example.com"
                             className="w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow transition-all shadow-sm"
                         />
                     </div>
@@ -115,6 +159,9 @@ export const Login: React.FC = () => {
                             <input
                                 type={showPassword ? "text" : "password"}
                                 required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
                                 className="w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 pr-10 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 focus:border-brand-yellow transition-all shadow-sm"
                             />
                             <button

@@ -35,7 +35,14 @@ const registerUser = asyncHandler(async (req, res) => {
     });
 
     if (existedUser) {
-        throw new ApiError(409, "User with email or username already exists");
+        // If the existing user is NOT verified, allow re-registration
+        // by deleting the old unverified account
+        if (!existedUser.isEmailVerified) {
+            await User.findByIdAndDelete(existedUser._id);
+        } else {
+            // User exists and IS verified - block registration
+            throw new ApiError(409, "User with email or username already exists");
+        }
     }
 
     // 3. Create user object - create entry in db
@@ -565,7 +572,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
     }
 
     // SECURITY LAYER 2: Validate and sanitize query params
-    const { page, limit, role, isActive } = req.query;
+    const { page, limit, role, isActive, search } = req.query;
 
     // Validate page number (strict integer check)
     const pageNum = page ? Number(page) : 1;
@@ -582,6 +589,19 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
     // Build filter with sanitized values
     const filter = {};
+
+    // SECURITY LAYER 3: Search functionality with sanitization
+    if (search && typeof search === 'string') {
+        // Sanitize search: limit length and escape regex special characters
+        const sanitizedSearch = search.slice(0, 50).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (sanitizedSearch.trim()) {
+            filter.$or = [
+                { fullName: { $regex: sanitizedSearch, $options: 'i' } },
+                { email: { $regex: sanitizedSearch, $options: 'i' } },
+                { username: { $regex: sanitizedSearch, $options: 'i' } }
+            ];
+        }
+    }
 
     // SECURITY LAYER 3: Whitelist role values (prevent NoSQL injection)
     if (role) {
@@ -771,74 +791,74 @@ export const updateS3KeyInUserAvatar = asyncHandler(async (req, res) => {
  * Allows authenticated users to upload/update their avatar
  * SECURITY: Validates file type, cleans up old files, handles errors properly
  */
-const updateUserAvatar = asyncHandler(async (req, res) => {
-    // 1. Check if file was uploaded
+// const updateUserAvatar = asyncHandler(async (req, res) => {
+//     // 1. Check if file was uploaded
 
-    const avatarLocalPath = req.file?.path;
+//     const avatarLocalPath = req.file?.path;
 
-    if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar file is required");
-    }
+//     if (!avatarLocalPath) {
+//         throw new ApiError(400, "Avatar file is required");
+//     }
 
-    // 2. Verify uploaded file exists (defensive check)
-    if (!fs.existsSync(avatarLocalPath)) {
-        throw new ApiError(500, "File upload failed. Please try again.");
-    }
+//     // 2. Verify uploaded file exists (defensive check)
+//     if (!fs.existsSync(avatarLocalPath)) {
+//         throw new ApiError(500, "File upload failed. Please try again.");
+//     }
 
-    // 3. Validate file path (prevent directory traversal)
-    const normalizedPath = path.normalize(avatarLocalPath).replace(/\\/g, '/');
-    if (!normalizedPath.startsWith('public/temp')) {
-        // Cleanup the malicious file
-        fs.unlinkSync(avatarLocalPath);
-        throw new ApiError(400, "Invalid file path");
-    }
+//     // 3. Validate file path (prevent directory traversal)
+//     const normalizedPath = path.normalize(avatarLocalPath).replace(/\\/g, '/');
+//     if (!normalizedPath.startsWith('public/temp')) {
+//         // Cleanup the malicious file
+//         fs.unlinkSync(avatarLocalPath);
+//         throw new ApiError(400, "Invalid file path");
+//     }
 
-    // 4. Get old avatar path before update (for cleanup)
-    const currentUser = await User.findById(req.user._id).select('avatar');
-    const oldAvatarPath = currentUser?.avatar;
+//     // 4. Get old avatar path before update (for cleanup)
+//     const currentUser = await User.findById(req.user._id).select('avatar');
+//     const oldAvatarPath = currentUser?.avatar;
 
-    try {
-        // 5. Update user's avatar in database
-        const updatedUser = await User.findByIdAndUpdate(
-            req.user._id,
-            {
-                $set: {
-                    avatar: avatarLocalPath
-                }
-            },
-            { new: true }
-        ).select("-password -refreshTokens -emailVerificationToken -forgotPasswordToken -emailVerificationExpiry -forgotPasswordExpiry -resetAttempts -accountLockedUntil");
+//     try {
+//         // 5. Update user's avatar in database
+//         const updatedUser = await User.findByIdAndUpdate(
+//             req.user._id,
+//             {
+//                 $set: {
+//                     avatar: avatarLocalPath
+//                 }
+//             },
+//             { new: true }
+//         ).select("-password -refreshTokens -emailVerificationToken -forgotPasswordToken -emailVerificationExpiry -forgotPasswordExpiry -resetAttempts -accountLockedUntil");
 
-        if (!updatedUser) {
-            throw new ApiError(404, "User not found");
-        }
+//         if (!updatedUser) {
+//             throw new ApiError(404, "User not found");
+//         }
 
-        // 6. Delete old avatar file (if exists and is a local file)
-        if (oldAvatarPath && oldAvatarPath.startsWith('public/temp') && fs.existsSync(oldAvatarPath)) {
-            try {
-                fs.unlinkSync(oldAvatarPath);
-            } catch (error) {
-                // Log error but don't fail the request
-                console.error("Failed to delete old avatar:", error);
-            }
-        }
+//         // 6. Delete old avatar file (if exists and is a local file)
+//         if (oldAvatarPath && oldAvatarPath.startsWith('public/temp') && fs.existsSync(oldAvatarPath)) {
+//             try {
+//                 fs.unlinkSync(oldAvatarPath);
+//             } catch (error) {
+//                 // Log error but don't fail the request
+//                 console.error("Failed to delete old avatar:", error);
+//             }
+//         }
 
-        return res.status(200).json(
-            new ApiResponse(200, updatedUser, "Avatar updated successfully")
-        );
+//         return res.status(200).json(
+//             new ApiResponse(200, updatedUser, "Avatar updated successfully")
+//         );
 
-    } catch (error) {
-        // 7. Rollback: Delete newly uploaded file if DB update failed
-        if (fs.existsSync(avatarLocalPath)) {
-            try {
-                fs.unlinkSync(avatarLocalPath);
-            } catch (unlinkError) {
-                console.error("Failed to cleanup uploaded file after error:", unlinkError);
-            }
-        }
-        throw error; // Re-throw original error
-    }
-});
+//     } catch (error) {
+//         // 7. Rollback: Delete newly uploaded file if DB update failed
+//         if (fs.existsSync(avatarLocalPath)) {
+//             try {
+//                 fs.unlinkSync(avatarLocalPath);
+//             } catch (unlinkError) {
+//                 console.error("Failed to cleanup uploaded file after error:", unlinkError);
+//             }
+//         }
+//         throw error; // Re-throw original error
+//     }
+// });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
     return res.status(200).json(
@@ -862,7 +882,7 @@ export {
     getAllUsers,
     getUserById,
     deactivateUser,
-    updateUserAvatar,
+    // updateUserAvatar,
     getCurrentUser
 };
 

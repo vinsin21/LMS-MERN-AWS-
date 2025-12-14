@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ExternalLink, Menu, X, ArrowRight, FileText, MessageSquare, BookOpen, Layout, Trophy } from 'lucide-react';
+import { ChevronDown, ExternalLink, Menu, X, ArrowRight, FileText, MessageSquare, BookOpen, Layout, Trophy, LogOut, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 interface NavLinkProps {
   label: string;
@@ -30,8 +31,17 @@ const NavLink: React.FC<NavLinkProps> = ({ label, to, hasDropdown }) => {
 export const Navbar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOthersOpen, setIsOthersOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    setIsUserMenuOpen(false);
+    navigate('/');
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -183,13 +193,72 @@ export const Navbar: React.FC = () => {
 
           {/* Right Actions (Desktop) */}
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-white hover:text-brand-yellow transition-colors">
-              Login
-            </Link>
-            <Link to="/dashboard" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-white text-sm font-medium border border-white/10 transition-all group">
-              Dashboard
-              <ExternalLink size={14} className="text-gray-400 group-hover:text-white transition-colors" />
-            </Link>
+            {isLoading ? (
+              <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse" />
+            ) : isAuthenticated && user ? (
+              <>
+                <Link to="/dashboard" className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-white text-sm font-medium border border-white/10 transition-all group">
+                  Dashboard
+                  <ExternalLink size={14} className="text-gray-400 group-hover:text-white transition-colors" />
+                </Link>
+
+                {/* User Menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-white/5 transition-colors"
+                  >
+                    <div className="w-8 h-8 bg-brand-yellow/20 rounded-full flex items-center justify-center text-brand-yellow font-semibold text-sm">
+                      {user.fullName?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <ChevronDown size={14} className={`text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {isUserMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute top-full right-0 mt-2 w-56 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl p-2 z-[60]"
+                      >
+                        <div className="px-3 py-2 border-b border-white/10 mb-2">
+                          <p className="text-sm font-medium text-white truncate">{user.fullName}</p>
+                          <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                        </div>
+
+                        <Link
+                          to="/dashboard/settings"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                        >
+                          <User size={16} />
+                          Profile Settings
+                        </Link>
+
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                        >
+                          <LogOut size={16} />
+                          Sign out
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-sm font-medium text-white hover:text-brand-yellow transition-colors">
+                  Login
+                </Link>
+                <Link to="/signup" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-yellow hover:bg-[#ffe066] text-black text-sm font-medium transition-all">
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -266,18 +335,49 @@ export const Navbar: React.FC = () => {
                 <a href="mailto:hello@codersgyan.com" className="text-white text-lg font-medium block mb-8 hover:text-brand-yellow transition-colors">hello@codersgyan.com</a>
 
                 <div className="flex flex-col gap-3">
-                  <Link to="/dashboard" className="w-full bg-brand-yellow text-black font-bold py-3.5 rounded-full flex items-center justify-center gap-2 hover:bg-[#ffe066] transition-colors shadow-lg shadow-brand-yellow/10" onClick={() => setIsMobileMenuOpen(false)}>
-                    Dashboard <ExternalLink size={18} />
-                  </Link>
-                  <Link to="/login" className="w-full bg-[#262626] border border-white/10 text-white font-bold py-3.5 rounded-full flex items-center justify-center gap-2 hover:bg-[#333] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                    Login <ArrowRight size={18} />
-                  </Link>
+                  {isAuthenticated && user ? (
+                    <>
+                      {/* User info */}
+                      <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2">
+                        <div className="w-10 h-10 bg-brand-yellow/20 rounded-full flex items-center justify-center text-brand-yellow font-semibold">
+                          {user.fullName?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{user.fullName}</p>
+                          <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                        </div>
+                      </div>
+                      <Link to="/dashboard" className="w-full bg-brand-yellow text-black font-bold py-3.5 rounded-full flex items-center justify-center gap-2 hover:bg-[#ffe066] transition-colors shadow-lg shadow-brand-yellow/10" onClick={() => setIsMobileMenuOpen(false)}>
+                        Dashboard <ExternalLink size={18} />
+                      </Link>
+                      <button
+                        onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+                        className="w-full bg-[#262626] border border-white/10 text-red-400 font-bold py-3.5 rounded-full flex items-center justify-center gap-2 hover:bg-red-500/10 hover:border-red-500/20 transition-colors"
+                      >
+                        <LogOut size={18} /> Sign out
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link to="/signup" className="w-full bg-brand-yellow text-black font-bold py-3.5 rounded-full flex items-center justify-center gap-2 hover:bg-[#ffe066] transition-colors shadow-lg shadow-brand-yellow/10" onClick={() => setIsMobileMenuOpen(false)}>
+                        Get Started <ArrowRight size={18} />
+                      </Link>
+                      <Link to="/login" className="w-full bg-[#262626] border border-white/10 text-white font-bold py-3.5 rounded-full flex items-center justify-center gap-2 hover:bg-[#333] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                        Login <ArrowRight size={18} />
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Backdrop for closing user dropdown */}
+      {isUserMenuOpen && (
+        <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsUserMenuOpen(false)} />
+      )}
     </>
   );
 };

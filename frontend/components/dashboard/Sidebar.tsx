@@ -1,22 +1,26 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Award, Settings, LogOut, ChevronRight, User } from 'lucide-react';
-import { mockUser } from '../../data/mockData';
+import { LogOut, ChevronRight } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { getNavigationForRole } from '../../config/navigationConfig';
 
 export const Sidebar: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user, logout } = useAuth();
 
-    const handleLogout = () => {
-        navigate('/login');
+    const handleLogout = async () => {
+        await logout();
+        navigate('/');
     };
 
-    const navItems = [
-        { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', count: 1 },
-        { icon: BookOpen, label: 'My Courses', path: '/dashboard/courses', count: 4 },
-        { icon: Award, label: 'Certificates', path: '/dashboard/certificates', count: 1 },
-        { icon: Settings, label: 'Settings', path: '/dashboard/settings', count: null },
-    ];
+    // Construct avatar URL from S3 key or use null
+    const avatarUrl = user?.avatar
+        ? `${import.meta.env.VITE_CLOUDFRONT_URL || ''}/${user.avatar}`
+        : null;
+
+    // Get role-based navigation items
+    const navItems = user ? getNavigationForRole(user.role) : [];
 
     return (
         <aside className="hidden md:flex flex-col w-72 h-screen sticky top-0 bg-white dark:bg-[#18181b] border-r border-zinc-200 dark:border-zinc-800 p-6 transition-colors duration-300">
@@ -27,15 +31,27 @@ export const Sidebar: React.FC = () => {
                 className="flex items-center gap-4 mb-12 px-2 cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/5 p-2 rounded-xl transition-colors group"
             >
                 <div className="relative">
-                    <img
-                        src={mockUser.avatar}
-                        alt={mockUser.name}
-                        className="w-10 h-10 rounded-full object-cover ring-2 ring-zinc-100 dark:ring-white/10"
-                    />
+                    {avatarUrl ? (
+                        <img
+                            src={avatarUrl}
+                            alt={user?.fullName || 'User'}
+                            className="w-10 h-10 rounded-full object-cover ring-2 ring-zinc-100 dark:ring-white/10"
+                        />
+                    ) : (
+                        <div className="w-10 h-10 rounded-full bg-brand-yellow/20 flex items-center justify-center ring-2 ring-zinc-100 dark:ring-white/10">
+                            <span className="text-brand-yellow font-semibold text-sm">
+                                {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <div>
-                    <h3 className="text-zinc-900 dark:text-white font-bold text-sm leading-tight group-hover:text-brand-yellow transition-colors">{mockUser.name}</h3>
-                    <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-0.5 capitalize">{mockUser.role}</p>
+                    <h3 className="text-zinc-900 dark:text-white font-bold text-sm leading-tight group-hover:text-brand-yellow transition-colors">
+                        {user?.fullName || 'User'}
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-0.5 capitalize">
+                        {user?.role || 'Student'}
+                    </p>
                 </div>
                 <button className="ml-auto text-zinc-400 hover:text-zinc-900 dark:text-zinc-600 dark:hover:text-white transition-colors">
                     <ChevronRight size={16} />
@@ -89,3 +105,4 @@ export const Sidebar: React.FC = () => {
         </aside>
     );
 };
+
